@@ -122,11 +122,11 @@ export class Judge0ClientService {
     });
 
     /*
-     * Priority:
+     * Execution priority:
      *
-     * 1. Judge0, if explicitly configured.
-     * 2. JDoodle, if credentials are configured.
-     * 3. Local runner in development only.
+     * 1. Judge0 if configured
+     * 2. JDoodle if configured
+     * 3. Local runner in development only
      */
 
     if (judge.apiUrl) {
@@ -198,10 +198,6 @@ export class Judge0ClientService {
 
     const results: Judge0TestCaseResult[] = [];
 
-    /*
-     * JDoodle free accounts have limited daily executions.
-     * Each test case is therefore one execution.
-     */
     for (const testCase of testCases) {
       const result =
         await this.runSingleJDoodleTest(
@@ -300,16 +296,24 @@ export class Judge0ClientService {
       const memoryKb =
         this.parseJDoodleMemory(body.memory);
 
-      /*
-       * JDoodle puts normal program output and many
-       * compilation/runtime messages in "output".
-       */
       const output = body.output ?? '';
 
       const statusCode =
         typeof body.statusCode === 'number'
           ? body.statusCode
           : 200;
+
+      /*
+       * TEMPORARY DIAGNOSTIC LOGGING
+       *
+       * This does NOT log Client ID or Client Secret.
+       * We will remove these logs after fixing grading.
+       */
+      this.logger.log(
+        `JDoodle result: statusCode=${statusCode}, ` +
+          `output=${JSON.stringify(output)}, ` +
+          `error=${JSON.stringify(body.error ?? null)}`,
+      );
 
       if (
         statusCode !== 200 ||
@@ -333,9 +337,20 @@ export class Judge0ClientService {
         this.normalizeOutput(output);
 
       const expected =
-        this.normalizeOutput(expectedOutput);
+        this.normalizeOutput(
+          expectedOutput,
+        );
 
-      const passed = actual === expected;
+      /*
+       * TEMPORARY DIAGNOSTIC LOGGING
+       */
+      this.logger.log(
+        `JDoodle grading: actual=${JSON.stringify(actual)}, ` +
+          `expected=${JSON.stringify(expected)}`,
+      );
+
+      const passed =
+        actual === expected;
 
       return {
         statusId: passed ? 3 : 4,
