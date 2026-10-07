@@ -304,10 +304,8 @@ export class Judge0ClientService {
           : 200;
 
       /*
-       * TEMPORARY DIAGNOSTIC LOGGING
-       *
-       * This does NOT log Client ID or Client Secret.
-       * We will remove these logs after fixing grading.
+       * Temporary diagnostic logging.
+       * No credentials are logged here.
        */
       this.logger.log(
         `JDoodle result: statusCode=${statusCode}, ` +
@@ -341,9 +339,6 @@ export class Judge0ClientService {
           expectedOutput,
         );
 
-      /*
-       * TEMPORARY DIAGNOSTIC LOGGING
-       */
       this.logger.log(
         `JDoodle grading: actual=${JSON.stringify(actual)}, ` +
           `expected=${JSON.stringify(expected)}`,
@@ -386,6 +381,13 @@ export class Judge0ClientService {
     }
   }
 
+  /*
+   * JDoodle's selected Node.js runtime rejected the previous
+   * async-IIFE wrapper with "SyntaxError: Unexpected token (".
+   *
+   * Keep the wrapper simple and synchronous. The coding editor
+   * expects JavaScript solutions to define solve(input).
+   */
   private buildJavaScriptHarness(
     sourceCode: string,
     input: string,
@@ -393,30 +395,18 @@ export class Judge0ClientService {
     return `
 ${sourceCode}
 
-(async () => {
-  try {
-    if (typeof solve !== 'function') {
-      throw new Error(
-        'Your solution must define a function named solve(input).'
-      );
-    }
+if (typeof solve !== 'function') {
+  throw new Error(
+    'Your solution must define a function named solve(input).'
+  );
+}
 
-    const input = ${JSON.stringify(input)};
-    const result = await solve(input);
+var inputData = ${JSON.stringify(input)};
+var result = solve(inputData);
 
-    if (result !== undefined && result !== null) {
-      process.stdout.write(String(result));
-    }
-  } catch (error) {
-    console.error(
-      error instanceof Error
-        ? error.stack
-        : String(error)
-    );
-
-    process.exit(1);
-  }
-})();
+if (result !== undefined && result !== null) {
+  console.log(String(result));
+}
 `;
   }
 
