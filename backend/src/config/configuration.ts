@@ -50,6 +50,10 @@ export interface AppConfig {
     apiUrl?: string;
     apiKey?: string;
   };
+  jdoodle: {
+    clientId?: string;
+    clientSecret?: string;
+  };
   throttle: {
     ttl: number;
     limit: number;
@@ -122,6 +126,11 @@ export default (): AppConfig => ({
   judge: {
     apiUrl: process.env.JUDGE_API_URL,
     apiKey: process.env.JUDGE_API_KEY,
+  },
+
+  jdoodle: {
+    clientId: process.env.JDOODLE_CLIENT_ID,
+    clientSecret: process.env.JDOODLE_CLIENT_SECRET,
   },
 
   throttle: {
