@@ -271,7 +271,7 @@ export class Judge0ClientService {
         ) as JDoodleResponse;
       } catch {
         this.logger.error(
-          `JDoodle returned invalid JSON: ${bodyText}`,
+          'JDoodle returned an invalid JSON response.',
         );
 
         throw new ServiceUnavailableException(
@@ -281,7 +281,7 @@ export class Judge0ClientService {
 
       if (!response.ok) {
         this.logger.error(
-          `JDoodle request failed: ${response.status} ${bodyText}`,
+          `JDoodle request failed with HTTP status ${response.status}.`,
         );
 
         throw new ServiceUnavailableException(
@@ -302,16 +302,6 @@ export class Judge0ClientService {
         typeof body.statusCode === 'number'
           ? body.statusCode
           : 200;
-
-      /*
-       * Temporary diagnostic logging.
-       * No credentials are logged here.
-       */
-      this.logger.log(
-        `JDoodle result: statusCode=${statusCode}, ` +
-          `output=${JSON.stringify(output)}, ` +
-          `error=${JSON.stringify(body.error ?? null)}`,
-      );
 
       if (
         statusCode !== 200 ||
@@ -338,11 +328,6 @@ export class Judge0ClientService {
         this.normalizeOutput(
           expectedOutput,
         );
-
-      this.logger.log(
-        `JDoodle grading: actual=${JSON.stringify(actual)}, ` +
-          `expected=${JSON.stringify(expected)}`,
-      );
 
       const passed =
         actual === expected;
@@ -382,11 +367,12 @@ export class Judge0ClientService {
   }
 
   /*
-   * JDoodle's selected Node.js runtime rejected the previous
-   * async-IIFE wrapper with "SyntaxError: Unexpected token (".
+   * JavaScript solutions in the coding editor define:
    *
-   * Keep the wrapper simple and synchronous. The coding editor
-   * expects JavaScript solutions to define solve(input).
+   * function solve(input) { ... }
+   *
+   * Keep this wrapper synchronous for compatibility with
+   * JDoodle's Node.js runtime.
    */
   private buildJavaScriptHarness(
     sourceCode: string,
@@ -410,6 +396,12 @@ if (result !== undefined && result !== null) {
 `;
   }
 
+  /*
+   * Python solutions in the coding editor define:
+   *
+   * def solve(input):
+   *     ...
+   */
   private buildPythonHarness(
     sourceCode: string,
     input: string,
@@ -798,7 +790,7 @@ if __name__ == "__main__":
   }
 
   // =========================================================
-  // EXISTING JUDGE0 SUPPORT
+  // JUDGE0 SUPPORT
   // =========================================================
 
   private buildHeaders(): Record<
@@ -886,11 +878,8 @@ if __name__ == "__main__":
       );
 
     if (!batchResponse.ok) {
-      const body =
-        await batchResponse.text();
-
       this.logger.error(
-        `Judge0 batch submit failed: ${batchResponse.status} ${body}`,
+        `Judge0 batch submission failed with HTTP status ${batchResponse.status}.`,
       );
 
       throw new ServiceUnavailableException(
