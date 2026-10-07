@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Paper white bg, ink-navy text, signal-amber primary, focus-teal accent */
+    --background: 228 33% 98%;
+    --foreground: 228 41% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 228 41% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 41% 10%;
+
+    --primary: 37 85% 59%;
+    --primary-foreground: 228 41% 10%;
+
+    --secondary: 228 20% 94%;
+    --secondary-foreground: 228 41% 10%;
+
+    --muted: 228 20% 95%;
+    --muted-foreground: 228 10% 40%;
+
+    --accent: 178 69% 34%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 178 69% 30%;
+    --success-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 228 27% 87%;
+    --input: 228 27% 87%;
+    --ring: 37 85% 59%;
+
+    --ink: 228 41% 8%;
+
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 228 41% 8%;
+    --foreground: 228 20% 92%;
+
+    --card: 228 35% 11%;
+    --card-foreground: 228 20% 92%;
+
+    --popover: 228 35% 11%;
+    --popover-foreground: 228 20% 92%;
+
+    --primary: 37 90% 62%;
+    --primary-foreground: 228 41% 8%;
+
+    --secondary: 228 25% 16%;
+    --secondary-foreground: 228 20% 92%;
+
+    --muted: 228 25% 16%;
+    --muted-foreground: 228 12% 65%;
+
+    --accent: 178 65% 45%;
+    --accent-foreground: 228 41% 8%;
+
+    --success: 178 65% 45%;
+    --success-foreground: 228 41% 8%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 228 25% 20%;
+    --input: 228 25% 20%;
+    --ring: 37 90% 62%;
+
+    --ink: 228 41% 8%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Visible keyboard focus everywhere, not just form controls */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

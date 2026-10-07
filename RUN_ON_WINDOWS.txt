@@ -1,0 +1,40 @@
+AI INTERVIEW PLATFORM - WINDOWS
+===============================
+
+Prerequisites already expected on your PC:
+1. Node.js
+2. PostgreSQL running on port 5432
+3. Memurai/Redis-compatible server running on port 6379
+
+Database expected by backend/.env:
+  database: ai_interview_platform
+  user: postgres
+  password: postgres
+
+FIRST TIME ONLY
+---------------
+1. Extract this ZIP to a normal folder (Desktop is fine).
+2. Double-click setup-windows.cmd
+3. Wait for all 5 steps to finish.
+
+START THE PROJECT
+-----------------
+Double-click start-windows.cmd
+
+Then open:
+  Frontend: http://localhost:3000
+  Swagger:  http://localhost:4000/api/docs
+
+Seeded admin account:
+  Email:    admin@aiinterview.dev
+  Password: ChangeMe123!
+
+IMPORTANT
+---------
+If your PostgreSQL password is NOT "postgres", edit backend/.env and change
+DATABASE_URL before running setup-windows.cmd.
+
+The original project had Next.js route groups named (admin) and (student).
+Those groups do not create /admin or /student URL segments, so both dashboards
+resolved to /dashboard and conflicted. This corrected copy uses real /admin and
+/student route folders and updates the related links/redirects.

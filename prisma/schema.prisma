@@ -1,0 +1,538 @@
+// ============================================================================
+// AI Interview Preparation & Evaluation Platform — Prisma Schema
+// Phase 3: Full data model, matching the ER diagram in
+// docs/PHASE-1-Architecture-and-Design.md § 4, plus two deliberate additions:
+//
+//   CodingSubmission — not in the original 22-table list, but required by
+//   the Coding Assessment API defined in Phase 1 § 7.6
+//   (GET /coding/submissions, POST /coding/questions/:id/submit) and FR-4 in
+//   the SRS. CodingQuestion stores the problem; CodingSubmission stores each
+//   student's attempt (code, language, pass/fail, runtime) against it — a
+//   1-to-many child, not a redesign of anything already agreed in Phase 1.
+//
+//   ResumeTemplate — added in Phase 8, promised in Phase 7's admin nav
+//   ("Manage Resume Templates" from the original admin feature list had no
+//   backing table until the Resume module existed to need one).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum RoleName {
+  STUDENT
+  ADMIN
+}
+
+enum OtpPurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+enum QuestionType {
+  TECHNICAL
+  HR
+  BEHAVIORAL
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum InterviewType {
+  TECHNICAL
+  HR
+  BEHAVIORAL
+  CODING
+  VOICE
+}
+
+enum InterviewStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum SubmissionStatus {
+  PENDING
+  RUNNING
+  PASSED
+  FAILED
+  ERROR
+}
+
+enum LeaderboardPeriod {
+  WEEKLY
+  MONTHLY
+  ALL_TIME
+}
+
+enum FeedbackStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+}
+
+// ============================================================================
+// 1. IDENTITY & AUTH  (Users, Roles, Profiles, OTP, RefreshTokens)
+// ============================================================================
+
+model Role {
+  id    String   @id @default(uuid())
+  name  RoleName @unique
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id            String  @id @default(uuid())
+  email         String  @unique
+  passwordHash  String? // nullable: Google-OAuth-only accounts have no password
+  googleId      String? @unique
+  emailVerified Boolean @default(false)
+  isActive      Boolean @default(true)
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  profile            Profile?
+  resumes            Resume[]
+  mockInterviews     MockInterview[]
+  codingSubmissions  CodingSubmission[]
+  progress           Progress[]
+  achievements       Achievement[]
+  certificates       Certificate[]
+  leaderboardEntries Leaderboard[]
+  notifications      Notification[]
+  feedback           Feedback[]
+  otps               Otp[]
+  refreshTokens      RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([roleId])
+  @@map("users")
+}
+
+model Profile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName        String
+  avatarUrl       String?
+  targetRole      String?
+  experienceLevel String?
+  bio             String?
+
+  skills Skill[] @relation("ProfileSkills")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+model Otp {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  codeHash   String
+  purpose    OtpPurpose
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose])
+  @@map("otps")
+}
+
+model RefreshToken {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String   @unique
+  userAgent String?
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// 2. SKILLS  (many-to-many with Profiles and Resumes)
+// ============================================================================
+
+model Skill {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  category String?
+  profiles Profile[] @relation("ProfileSkills")
+  resumes  Resume[]  @relation("ResumeSkills")
+
+  @@map("skills")
+}
+
+// ============================================================================
+// 3. RESUME DOMAIN  (Resumes, ResumeAnalysis, ATSReports)
+// ============================================================================
+
+model Resume {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fileUrl      String
+  originalName String
+  parsedData   Json?
+
+  skills   Skill[]         @relation("ResumeSkills")
+  analysis ResumeAnalysis?
+
+  uploadedAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("resumes")
+}
+
+model ResumeAnalysis {
+  id       String @id @default(uuid())
+  resumeId String @unique
+  resume   Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  missingSkills Json
+  suggestions   Json
+  targetJobRole String?
+
+  atsReport AtsReport?
+
+  createdAt DateTime @default(now())
+
+  @@map("resume_analysis")
+}
+
+model AtsReport {
+  id         String         @id @default(uuid())
+  analysisId String         @unique
+  analysis   ResumeAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  atsScore      Int
+  sectionScores Json
+
+  createdAt DateTime @default(now())
+
+  @@map("ats_reports")
+}
+
+// ============================================================================
+// 4. INTERVIEW DOMAIN
+//    (InterviewCategories, Questions, MockInterviews, InterviewResponses,
+//     SpeechAnalysis)
+// ============================================================================
+
+model InterviewCategory {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  icon        String?
+
+  questions          Question[]
+  codingQuestions    CodingQuestion[]
+  mockInterviews     MockInterview[]
+  progress           Progress[]
+  certificates       Certificate[]
+  leaderboardEntries Leaderboard[]
+
+  createdAt DateTime @default(now())
+
+  @@map("interview_categories")
+}
+
+model Question {
+  id         String            @id @default(uuid())
+  categoryId String
+  category   InterviewCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  type         QuestionType
+  difficulty   Difficulty
+  questionText String
+  modelAnswer  String
+  keywords     Json
+
+  responses InterviewResponse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId, type, difficulty])
+  @@map("questions")
+}
+
+model MockInterview {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   InterviewCategory @relation(fields: [categoryId], references: [id])
+
+  type         InterviewType
+  difficulty   Difficulty
+  status       InterviewStatus @default(IN_PROGRESS)
+  overallScore Int?
+  isBookmarked Boolean         @default(false)
+
+  responses InterviewResponse[]
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([userId, status])
+  @@index([categoryId])
+  @@map("mock_interviews")
+}
+
+model InterviewResponse {
+  id          String        @id @default(uuid())
+  interviewId String
+  interview   MockInterview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+
+  transcript          String?
+  audioUrl             String?
+  score                Int?
+  evaluationBreakdown  Json?
+
+  speechAnalysis SpeechAnalysis?
+
+  answeredAt DateTime @default(now())
+
+  @@index([interviewId])
+  @@index([questionId])
+  @@map("interview_responses")
+}
+
+model SpeechAnalysis {
+  id         String            @id @default(uuid())
+  responseId String            @unique
+  response   InterviewResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  // pronunciationScore and pauseCount are nullable: both are only
+  // measurable from real Whisper segment data (avg_logprob and
+  // start/end timestamps — see speech-metrics.service.ts). When a
+  // student answers via a client-side-transcribed transcript instead
+  // (no Whisper call made), there is no real signal for either metric.
+  // Storing a guessed number would misrepresent something that was
+  // never actually measured — Phase 10 deliberately leaves these null
+  // in that case rather than fabricating a value.
+  pronunciationScore Float?
+  fluencyScore       Float
+  confidenceScore    Float
+  speakingSpeedWpm   Int
+  fillerWordCount    Int
+  pauseCount         Int?
+
+  createdAt DateTime @default(now())
+
+  @@map("speech_analysis")
+}
+
+// ============================================================================
+// 5. CODING ASSESSMENT DOMAIN  (CodingQuestions + CodingSubmission)
+// ============================================================================
+
+model CodingQuestion {
+  id         String            @id @default(uuid())
+  categoryId String
+  category   InterviewCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  title              String
+  description        String
+  difficulty         Difficulty
+  testCases          Json
+  supportedLanguages Json
+
+  submissions CodingSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId, difficulty])
+  @@map("coding_questions")
+}
+
+model CodingSubmission {
+  id               String         @id @default(uuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codingQuestionId String
+  codingQuestion   CodingQuestion @relation(fields: [codingQuestionId], references: [id], onDelete: Cascade)
+
+  language  String
+  code      String
+  status    SubmissionStatus @default(PENDING)
+  score     Int?
+  runtimeMs Int?
+
+  submittedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([codingQuestionId])
+  @@map("coding_submissions")
+}
+
+// ============================================================================
+// 6. PROGRESS & GAMIFICATION
+//    (Progress, Achievements, Certificates, Leaderboard)
+// ============================================================================
+
+model Progress {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   InterviewCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  totalInterviews Int   @default(0)
+  averageScore    Float @default(0)
+  trend           Json?
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, categoryId])
+  @@map("progress")
+}
+
+model Achievement {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  badgeCode String
+  earnedAt  DateTime @default(now())
+
+  @@unique([userId, badgeCode])
+  @@index([userId])
+  @@map("achievements")
+}
+
+model Certificate {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   InterviewCategory @relation(fields: [categoryId], references: [id])
+
+  fileUrl  String
+  issuedAt DateTime @default(now())
+
+  @@unique([userId, categoryId])
+  @@index([userId])
+  @@map("certificates")
+}
+
+model Leaderboard {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   InterviewCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  rank       Int
+  score      Int
+  period     LeaderboardPeriod
+  computedAt DateTime           @default(now())
+
+  @@unique([userId, categoryId, period])
+  @@index([categoryId, period])
+  @@map("leaderboard")
+}
+
+// ============================================================================
+// 7. PLATFORM  (Notifications, Feedback, Settings)
+// ============================================================================
+
+model Notification {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title   String
+  message String
+  isRead  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Feedback {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  subject String
+  message String
+  status  FeedbackStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@map("feedback")
+}
+
+model Setting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// ============================================================================
+// 8. RESUME TEMPLATES  (added in Phase 8, promised in Phase 7's admin nav —
+//    downloadable starting-point templates an admin curates; distinct from
+//    a student's own uploaded Resume)
+// ============================================================================
+
+model ResumeTemplate {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  fileUrl     String
+  category    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("resume_templates")
+}

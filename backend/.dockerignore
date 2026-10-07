@@ -1,0 +1,12 @@
+# NOTE: the project's actual Docker builds (docker/backend.Dockerfile) use
+# the PROJECT ROOT as build context, where the root .dockerignore is what
+# Docker actually reads — this file only applies if someone builds
+# directly from within backend/ as an alternate, non-monorepo-aware path.
+node_modules
+dist
+coverage
+uploads
+.env
+.env.local
+*.log
+.DS_Store

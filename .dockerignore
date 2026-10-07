@@ -1,0 +1,23 @@
+# Docker only reads .dockerignore from the root of the build context —
+# since docker/backend.Dockerfile and docker/frontend.Dockerfile are both
+# built with the PROJECT ROOT as context (see their header comments), this
+# is the file that actually takes effect. backend/.dockerignore and
+# frontend/.dockerignore exist too (for anyone building from within those
+# subdirectories directly), but Docker does NOT read them when building
+# from the root the way docker-compose.yml does here.
+
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/uploads
+**/.env
+**/.env.local
+**/*.log
+**/.DS_Store
+**/playwright-report
+**/test-results
+.git
+.gitignore
+README.md
+docs
